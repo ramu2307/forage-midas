@@ -1,5 +1,6 @@
 package com.jpmc.midascore.service;
 
+import com.jpmc.midascore.client.IncentiveClient;
 import com.jpmc.midascore.entity.TransactionRecord;
 import com.jpmc.midascore.entity.UserRecord;
 import com.jpmc.midascore.foundation.Transaction;
@@ -14,9 +15,12 @@ public class TransactionService {
     private final UserRepository userRepository;
     private final TransactionRecordRepository transactionRecordRepository;
 
-    public TransactionService(UserRepository userRepository, TransactionRecordRepository transactionRecordRepository) {
+    private final IncentiveClient incentiveClient;
+
+    public TransactionService(UserRepository userRepository, TransactionRecordRepository transactionRecordRepository, IncentiveClient incentiveClient) {
         this.userRepository = userRepository;
         this.transactionRecordRepository = transactionRecordRepository;
+        this.incentiveClient = incentiveClient;
     }
 
     @Transactional
@@ -35,10 +39,12 @@ public class TransactionService {
             return; // Insufficient funds
         }
 
-        sender.setBalance(sender.getBalance() - transaction.getAmount());
-        recipient.setBalance(recipient.getBalance() + transaction.getAmount());
+        float incentive = incentiveClient.fetchIncentive(transaction);
 
-        TransactionRecord record = new TransactionRecord(sender, recipient, transaction.getAmount());
+        sender.setBalance(sender.getBalance() - transaction.getAmount());
+        recipient.setBalance(recipient.getBalance() + transaction.getAmount() + incentive);
+
+        TransactionRecord record = new TransactionRecord(sender, recipient, transaction.getAmount(), incentive);
         transactionRecordRepository.save(record);
 
         System.out.println(
